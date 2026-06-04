@@ -197,13 +197,7 @@ $(OBJDIR)/%.o : %.F90
 	${CPP} ${DEFINES} -P -C ${INCLUDE} $< ${OBJDIR}/$*.f90
 	$(COMPILE) $(INCLUDE) -o ${OBJDIR}/$*.o ${OBJDIR}/$*.f90
 	@if [ -f $*.o ]; then /bin/mv $*.o ${OBJDIR}; fi
-
 ifneq (${MOD},o)
-$(OBJDIR)/%.${MOD}: %.F90
-	@- /bin/rm -f ${OBJDIR}/$*.F90 ${OBJDIR}/$*.o ${OBJDIR}/$*.${MOD}
-	${CPP} ${DEFINES} -P -C ${INCLUDE} $< ${OBJDIR}/$*.f90
-	$(COMPILE) $(INCLUDE) -o ${OBJDIR}/$*.o ${OBJDIR}/$*.f90
-	@if [ -f $*.o ]; then /bin/mv $*.o ${OBJDIR}; fi
 	@if [ -f $*.${MOD} ]; then /bin/mv $*.${MOD} ${OBJDIR}; fi
 endif
 
@@ -212,14 +206,13 @@ $(OBJDIR)/%.o : %.f90
 	${CPP} ${DEFINES} -P -C ${INCLUDE} $< ${OBJDIR}/$*.f90
 	$(COMPILE) $(INCLUDE) -o ${OBJDIR}/$*.o ${OBJDIR}/$*.f90
 	@if [ -f $*.o ]; then /bin/mv $*.o ${OBJDIR}; fi
+ifneq (${MOD},o)
+	@if [ -f $*.${MOD} ]; then /bin/mv $*.${MOD} ${OBJDIR}; fi
+endif
 
 ifneq (${MOD},o)
-$(OBJDIR)/%.${MOD}: %.f90
-	@- /bin/rm -f ${OBJDIR}/$*.f90 ${OBJDIR}/$*.o ${OBJDIR}/$*.${MOD}
-	${CPP} ${DEFINES} -P -C ${INCLUDE} $< ${OBJDIR}/$*.f90
-	$(COMPILE) $(INCLUDE) -o ${OBJDIR}/$*.o ${OBJDIR}/$*.f90
-	@if [ -f $*.o ]; then /bin/mv $*.o ${OBJDIR}; fi
-	@if [ -f $*.${MOD} ]; then /bin/mv $*.${MOD} ${OBJDIR}; fi
+$(OBJDIR)/%.${MOD}: $(OBJDIR)/%.o
+	@true
 endif
 
 # compile an executable
