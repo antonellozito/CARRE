@@ -132,7 +132,9 @@ MAKETAGS ?= ctags -e -f
 
 MAINLIST = carre.o tradui.o fcrr.o bidon.o fcrblkd.o
 
-include ${OBJDIR}/LISTOBJ
+ifeq ($(shell [ -e ${OBJDIR}/LISTOBJ ] && echo yes || echo no ),yes)
+  include ${OBJDIR}/LISTOBJ
+endif
 
 DEST = $(OBJS:%.o=$(OBJDIR)/%.o)
 GDEST = $(GOBJS:%.o=$(OBJDIR)/%.o)
@@ -328,6 +330,7 @@ endif
 	touch ${OBJDIR}/dependencies.${COMPILER}
 	${MAKE} VERSION
 	${MAKE} tags
+	${MAKE} listobj
 	${MAKE} depend
 
 include ${OBJDIR}/dependencies.${COMPILER}
