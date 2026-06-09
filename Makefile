@@ -220,16 +220,14 @@ ${OBJDIR}/b2mod_dimensions.o: ${DIMSDIR}/b2mod_dimensions.F ${B2SRC}/modules/.ne
 	ln -sf ${DIMSDIR}/b2mod_dimensions.F ${SRCDIR}/b25_links/b2mod_dimensions.F
 	${CPP} ${DEFINES} ${EQUIVS} -P ${INCLUDE} ${SRCDIR}/b25_links/b2mod_dimensions.F ${OBJDIR}/b2mod_dimensions.f
 	$(COMPILE) ${FFLAGSEXTRA} $(INCLUDE) -o ${OBJDIR}/b2mod_dimensions.o ${OBJDIR}/b2mod_dimensions.f
+	@if [ -f b2mod_dimensions.${MOD} ]; then /bin/mv b2mod_dimensions.${MOD} ${OBJDIR}; fi
 ifneq ($(COMPILER),nag_f90)
 	@if [ -f ${OBJDIR}/b2mod_dimensions.${MOD} ] ; then touch ${OBJDIR}/b2mod_dimensions.${MOD} ; fi
 endif
 ifneq (${MOD},o)
-${OBJDIR}/b2mod_dimensions.${MOD}: ${DIMSDIR}/b2mod_dimensions.F ${B2SRC}/modules/.new_modules
-	@mkdir -p ${SRCDIR}/b25_links/
-	ln -sf ${DIMSDIR}/b2mod_dimensions.F ${SRCDIR}/b25_links/b2mod_dimensions.F
-	${CPP} ${DEFINES} ${EQUIVS} -P ${INCLUDE} ${SRCDIR}/b25_links/b2mod_dimensions.F ${OBJDIR}/b2mod_dimensions.f
-	$(COMPILE) ${FFLAGSEXTRA} $(INCLUDE) -o ${OBJDIR}/b2mod_dimensions.o ${OBJDIR}/b2mod_dimensions.f
-	@if [ -f b2mod_dimensions.${MOD} ]; then /bin/mv b2mod_dimensions.${MOD} ${OBJDIR}; fi
+# .mod is a side-effect of compiling .o — depend on .o with no recipe to avoid
+# a parallel-make race where both rules would compile b2mod_dimensions.F simultaneously.
+${OBJDIR}/b2mod_dimensions.${MOD}: ${OBJDIR}/b2mod_dimensions.o
 endif
 else
 ${OBJDIR}/b2mod_dimensions.o:
@@ -238,10 +236,8 @@ ifneq ($(COMPILER),nag_f90)
 	@if [ -f ${OBJDIR}/b2mod_dimensions.${MOD} ] ; then touch ${OBJDIR}/b2mod_dimensions.${MOD} ; fi
 endif
 ifneq (${MOD},o)
-${OBJDIR}/b2mod_dimensions.${MOD}:
-	@touch ${OBJDIR}/b2mod_dimensions.o
+${OBJDIR}/b2mod_dimensions.${MOD}: ${OBJDIR}/b2mod_dimensions.o
 	@touch ${OBJDIR}/b2mod_dimensions.${MOD}
-	@if [ -f b2mod_dimensions.${MOD} ]; then /bin/mv b2mod_dimensions.${MOD} ${OBJDIR}; fi
 endif
 endif
 
