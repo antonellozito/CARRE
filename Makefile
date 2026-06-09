@@ -307,7 +307,10 @@ else
 	echo "$$ll" | eval sed "$$E" >> ${OBJDIR}/LISTOBJ
 endif
 
-${OBJDIR}/LISTOBJ: listobj
+# Rebuild LISTOBJ only when missing (no prerequisites → always up-to-date
+# once built).  Use explicit `make listobj` to force a rebuild when sources change.
+${OBJDIR}/LISTOBJ:
+	$(MAKE) listobj
 
 VERSION: ${SRCDIR}/include/git_version_Carre.h
 
@@ -325,7 +328,6 @@ endif
 	touch ${OBJDIR}/dependencies.${COMPILER}
 	${MAKE} VERSION
 	${MAKE} tags
-	${MAKE} listobj
 	${MAKE} depend
 
 include ${OBJDIR}/dependencies.${COMPILER}
