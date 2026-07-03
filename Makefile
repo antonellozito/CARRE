@@ -790,7 +790,7 @@ ${OBJDIR}/b2xbzb.o: ${B2SRC}/b2aux/b2xbzb.F ${OBJDIR}/b2us_map.${MOD}
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2xbzb.F ${OBJDIR}/b2xbzb.f
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2xbzb.o ${OBJDIR}/b2xbzb.f
 
-${OBJDIR}/b2xvsg.o: ${B2SRC}/b2aux/b2xvsg.F ${OBJDIR}/b2mod_types.${MOD}
+${OBJDIR}/b2xvsg.o: ${B2SRC}/b2aux/b2xvsg.F ${OBJDIR}/b2mod_geo2.${MOD} ${OBJDIR}/b2mod_types.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
 	ln -sf ${B2SRC}/b2aux/b2xvsg.F ${SRCDIR}/b25_links/
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2xvsg.F ${OBJDIR}/b2xvsg.f
