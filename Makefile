@@ -814,7 +814,7 @@ ${OBJDIR}/cfvers.o: ${B2SRC}/utility/cfvers.F ${B2SRC}/include/git_version_B25.h
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/cfvers.F ${OBJDIR}/cfvers.f
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/cfvers.o ${OBJDIR}/cfvers.f
 
-${OBJDIR}/cfwuin.o: ${B2SRC}/utility/cfwuin.F
+${OBJDIR}/cfwuin.o: ${B2SRC}/utility/cfwuin.F ${OBJDIR}/b2mod_ad.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
 	ln -sf ${B2SRC}/utility/cfwuin.F ${SRCDIR}/b25_links/
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/cfwuin.F ${OBJDIR}/cfwuin.f
