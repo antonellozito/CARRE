@@ -784,7 +784,7 @@ ${OBJDIR}/b2us_map.o: ${B2SRC}/modules/b2us_map.F ${OBJDIR}/b2mod_b2cmfs.${MOD} 
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2us_map.o ${OBJDIR}/b2us_map.f
 	@touch ${OBJDIR}/b2us_map.${MOD}
 
-${OBJDIR}/b2xbzb.o: ${B2SRC}/b2aux/b2xbzb.F
+${OBJDIR}/b2xbzb.o: ${B2SRC}/b2aux/b2xbzb.F ${OBJDIR}/b2us_map.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
 	ln -sf ${B2SRC}/b2aux/b2xbzb.F ${SRCDIR}/b25_links/
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2xbzb.F ${OBJDIR}/b2xbzb.f
