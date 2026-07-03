@@ -844,7 +844,7 @@ ${OBJDIR}/intface.o: ${B2SRC}/utility/intface.F
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/intface.F ${OBJDIR}/intface.f
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/intface.o ${OBJDIR}/intface.f
 
-${OBJDIR}/intvertex.o: ${B2SRC}/utility/intvertex.F
+${OBJDIR}/intvertex.o: ${B2SRC}/utility/intvertex.F ${OBJDIR}/b2us_map.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
 	ln -sf ${B2SRC}/utility/intvertex.F ${SRCDIR}/b25_links/
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/intvertex.F ${OBJDIR}/intvertex.f
