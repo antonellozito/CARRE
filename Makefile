@@ -862,7 +862,7 @@ ${OBJDIR}/machsfr.o: ${B2SRC}/utility/machsfr.F
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/machsfr.F ${OBJDIR}/machsfr.f
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/machsfr.o ${OBJDIR}/machsfr.f
 
-${OBJDIR}/my_out_us.o: ${B2SRC}/utility/my_out_us.F
+${OBJDIR}/my_out_us.o: ${B2SRC}/utility/my_out_us.F ${OBJDIR}/b2mod_ad.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
 	ln -sf ${B2SRC}/utility/my_out_us.F ${SRCDIR}/b25_links/
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/my_out_us.F ${OBJDIR}/my_out_us.f
