@@ -260,17 +260,32 @@ TAGS:	tags
 tags:
 	rm -f TAGS ; ${MAKETAGS} TAGS ${SRCDIR}/*/*.F || touch TAGS
 
+
+# Build into a temp file and mv it into place atomically at the very end,
+# and mark completion with a trailing "# DEPEND-COMPLETE" line (checked by
+# the staleness guard right before "include ${OBJDIR}/dependencies.${COMPILER}"
+# further down). If this recipe is interrupted partway (SIGKILL/OOM/walltime/
+# Ctrl-C, all realistic under a parallel batch build), the real
+# dependencies.${COMPILER} is left untouched (either absent or the previous,
+# complete version) instead of a truncated-but-non-empty file. Without the
+# atomic mv + completion marker, a partially-written file would be silently
+# reused forever, permanently missing the "use module" ordering edges (e.g.
+# for carre_dimensions) for whichever sources had not yet been scanned at the
+# time of the interruption, letting a parallel make race ahead and read a
+# module file before/while it is built.
 depend: ${OBJS:.o=.F} ${GOBJS:.o=.F} ${MAINLIST:.o=.F}
 	@makedepend ${DEFINES} -f- ${INCLUDE} $^ | \
 	sed -e 's|${SRCDIR}/[^ ]*/|${OBJDIR}/|' | \
 	sed -e 's,^${OBJDIR}/,\$${OBJDIR}/,' | \
-	sed -e 's,: ${SOLPSTOP},: $${SOLPSTOP},' > ${OBJDIR}/dependencies.${COMPILER}
-	@echo '# 1' >> ${OBJDIR}/dependencies.${COMPILER}
-	@egrep -aiH '^ {0,}use ' $^ | grep -v 'IGNORE' | tr , ' ' | awk '{sub("\\.F:",".o:",$$1);sub("\\.F90:",".o:",$$1);sub("\\.f90:",".o:",$$1);sub("^.*/","$${OBJDIR}/",$$1); print $$1,"$${OBJDIR}/"tolower($$3)".${MOD}"}' >> ${OBJDIR}/dependencies.${COMPILER}
+	sed -e 's,: ${SOLPSTOP},: $${SOLPSTOP},' > ${OBJDIR}/dependencies.${COMPILER}.tmp
+	@echo '# 1' >> ${OBJDIR}/dependencies.${COMPILER}.tmp
+	@egrep -aiH '^ {0,}use ' $^ | grep -v 'IGNORE' | tr , ' ' | awk '{sub("\\.F:",".o:",$$1);sub("\\.F90:",".o:",$$1);sub("\\.f90:",".o:",$$1);sub("^.*/","$${OBJDIR}/",$$1); print $$1,"$${OBJDIR}/"tolower($$3)".${MOD}"}' >> ${OBJDIR}/dependencies.${COMPILER}.tmp
 ifneq (${MOD},o)
-	@echo '# 2' >> ${OBJDIR}/dependencies.${COMPILER}
-	@egrep -aiH '^ {0,}use ' $^ | grep -v 'IGNORE' | tr , ' ' | awk '{sub("\\.F:",".${MOD}:",$$1);sub("\\.F90:",".${MOD}:",$$1);sub("\\.f90:",".${MOD}:",$$1);sub("^.*/","$${OBJDIR}/",$$1); print $$1,"$${OBJDIR}/"tolower($$3)".${MOD}"}' >> ${OBJDIR}/dependencies.${COMPILER}
+	@echo '# 2' >> ${OBJDIR}/dependencies.${COMPILER}.tmp
+	@egrep -aiH '^ {0,}use ' $^ | grep -v 'IGNORE' | tr , ' ' | awk '{sub("\\.F:",".${MOD}:",$$1);sub("\\.F90:",".${MOD}:",$$1);sub("\\.f90:",".${MOD}:",$$1);sub("^.*/","$${OBJDIR}/",$$1); print $$1,"$${OBJDIR}/"tolower($$3)".${MOD}"}' >> ${OBJDIR}/dependencies.${COMPILER}.tmp
 endif
+	@echo '# DEPEND-COMPLETE' >> ${OBJDIR}/dependencies.${COMPILER}.tmp
+	@mv -f ${OBJDIR}/dependencies.${COMPILER}.tmp ${OBJDIR}/dependencies.${COMPILER}
 
 listobj:
 ifneq ($(shell uname),Darwin)
@@ -329,13 +344,34 @@ else
 ${OBJDIR}/dependencies.${COMPILER}:
 endif
 	-mkdir -p ${OBJDIR}
-	printf '# Dummy dependencies file for Carre\n' > ${OBJDIR}/dependencies.${COMPILER}
-	${MAKE} VERSION
-	${MAKE} tags
-	${MAKE} listobj
-	${MAKE} depend
+	printf '# Dummy dependencies file for Carre (incomplete - placeholder while regenerating)\n' > ${OBJDIR}/dependencies.${COMPILER}
+	CARRE_DEPEND_BUILDING=1 ${MAKE} VERSION
+	CARRE_DEPEND_BUILDING=1 ${MAKE} tags
+	CARRE_DEPEND_BUILDING=1 ${MAKE} listobj
+	CARRE_DEPEND_BUILDING=1 ${MAKE} depend
 
-$(shell [ -s ${OBJDIR}/dependencies.${COMPILER} ] || rm -f ${OBJDIR}/dependencies.${COMPILER})
+# Treat the file as usable only if the "depend" target ran to completion
+# (marked by the trailing "# DEPEND-COMPLETE" line written just before its
+# atomic mv into place, see the "depend" target above). Anything else -
+# missing file, the placeholder written above, or a file left over from an
+# interrupted/killed depend run (SIGKILL/OOM/walltime/Ctrl-C, all realistic
+# under a parallel batch build) - is discarded so it gets regenerated from
+# scratch instead of being silently reused with missing "use module"
+# ordering edges.
+#
+# This check runs at Makefile PARSE time, so it also runs again inside every
+# recursive ${MAKE} sub-invocation spawned by the bootstrap recipe just above
+# (VERSION/tags/listobj/depend). Without the CARRE_DEPEND_BUILDING guard,
+# each of those sub-invocations would re-parse this Makefile, see the
+# not-yet-complete placeholder, delete it, cause "include" to re-trigger the
+# bootstrap rule again, and recurse forever. CARRE_DEPEND_BUILDING=1 is set
+# in the environment only for those inner sub-makes (see recipe above), so
+# they trust whatever is currently on disk and skip the deletion, while a
+# fresh top-level "make" invocation (which does not have the variable set)
+# still performs the real staleness check.
+ifeq ($(CARRE_DEPEND_BUILDING),)
+$(shell tail -n1 ${OBJDIR}/dependencies.${COMPILER} 2>/dev/null | grep -q '^# DEPEND-COMPLETE$$' || rm -f ${OBJDIR}/dependencies.${COMPILER})
+endif
 include ${OBJDIR}/dependencies.${COMPILER}
 ifeq ($(shell [ -e ${CRRDIR}/config/dependencies.local ] && echo yes || echo no ),yes)
 include ${CRRDIR}/config/dependencies.local
