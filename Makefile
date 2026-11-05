@@ -179,12 +179,36 @@ else
 	if [ -f $*.o ]; then /bin/mv $*.o ${OBJDIR}; fi
 endif
 
+# Graphics of carre.exe: none when LD_NCARG is set empty on the command
+# line (carre_nox), NCAR Graphics with USE_NCAR, else the Python graphics
+# of SOLPS-ITER (lib/python); without the SOLPS-ITER environment or the
+# NCAR replacement of B2.5, NCAR Graphics when LD_NCARG is set, else none
+ifeq ($(origin LD_NCARG),command line)
+CARRE_GRAPHICS = nox
+else ifdef USE_NCAR
+CARRE_GRAPHICS = ncar
+else ifneq ($(and ${SOLPS_CPP},$(wildcard ${B2SRC}/b2plot/py/ncar_py.F)),)
+CARRE_GRAPHICS = python
+LD_NCARG =
+else ifdef LD_NCARG
+CARRE_GRAPHICS = ncar
+else
+CARRE_GRAPHICS = nox
+endif
+# NCAR replacement of B2.5 and its message channel, Autograph for Carre2
+PYOBJS = ${OBJDIR}/autograph_py.o ${OBJDIR}/ncar_py.o ${OBJDIR}/b2mod_b2plot_py.o ${OBJDIR}/b2mod_b2plot_help.o ${OBJDIR}/b2mod_graphics.o
+
 all: VERSION ${OBJDIR}/${PROG}
-ifdef LD_NCARG
+ifeq (${CARRE_GRAPHICS},ncar)
+ifndef LD_NCARG
+$(error Carre2 graphics need LD_NCARG when USE_NCAR is defined)
+endif
 ifeq ($(strip ${GLI_HOME}),)
 $(warning Carre2 graphics may not work because GLI_HOME is not defined.)
 endif
 all: ${OBJDIR}/.x
+else ifeq (${CARRE_GRAPHICS},python)
+all: ${OBJDIR}/.graphics_python
 else
 ifndef NCARG_ROOT
 $(warning Carre2 graphics are turned off as NCARG_ROOT is not defined.)
@@ -233,6 +257,13 @@ ifneq (${MOD},o)
 endif
 endif
 
+# Autograph of the Python graphics (outside the source lists: never in
+# libcarre.a or libgcarre.a)
+${OBJDIR}/autograph_py.o: ${SRCDIR}/py/autograph_py.F90
+	@- /bin/rm -f ${OBJDIR}/autograph_py.f90 ${OBJDIR}/autograph_py.o ${OBJDIR}/autograph_py.${MOD}
+	${CPP} ${DEFINES} -P -C ${INCLUDE} $< ${OBJDIR}/autograph_py.f90
+	$(COMPILE) $(INCLUDE) -o ${OBJDIR}/autograph_py.o ${OBJDIR}/autograph_py.f90
+
 ifneq (${MOD},o)
 $(OBJDIR)/%.${MOD}: $(OBJDIR)/%.o
 	@true
@@ -244,16 +275,22 @@ ${OBJDIR}/%.exe : ${OBJDIR}/%.o ${MAKES}
 
 all: ${ALLTARGETS}
 
-ifdef LD_NCARG
+ifeq (${CARRE_GRAPHICS},ncar)
 ${OBJDIR}/${PROG} ${OBJDIR}/.x: ${OBJDIR}/carre.o ${OBJDIR}/libcarre.a ${OBJDIR}/libgcarre.a $(MAKES)
 	rm -f ${OBJDIR}/${PROG} 2> /dev/null; \
-	rm -f ${OBJDIR}/.nox 2> /dev/null; \
+	rm -f ${OBJDIR}/.nox ${OBJDIR}/.graphics_python 2> /dev/null; \
 	${FC} $(FFLAGS) ${FFLAGSEXTRA} -o ${OBJDIR}/${PROG} ${OBJDIR}/carre.o ${OBJDIR}/libcarre.a ${OBJDIR}/libgcarre.a ${LDLIBS} $(LDFLAGS) $(LDEXTRA) ${USOLLIBS}
 	touch ${OBJDIR}/.x
+else ifeq (${CARRE_GRAPHICS},python)
+${OBJDIR}/${PROG} ${OBJDIR}/.graphics_python: ${OBJDIR}/carre.o ${OBJDIR}/libcarre.a ${PYOBJS} ${OBJDIR}/libgcarre.a ${OBJDIR}/libb25.a $(MAKES)
+	rm -f ${OBJDIR}/${PROG} 2> /dev/null; \
+	rm -f ${OBJDIR}/.x ${OBJDIR}/.nox 2> /dev/null; \
+	${FC} $(FFLAGS) ${FFLAGSEXTRA} -o ${OBJDIR}/${PROG} ${OBJDIR}/carre.o ${OBJDIR}/libcarre.a ${PYOBJS} ${OBJDIR}/libgcarre.a ${OBJDIR}/libb25.a ${LDLIBS} $(LDFLAGS) $(LDEXTRA) ${USOLLIBS}
+	touch ${OBJDIR}/.graphics_python
 else
 ${OBJDIR}/${PROG} ${OBJDIR}/.nox: ${OBJDIR}/carre.o ${OBJDIR}/libcarre.a ${OBJDIR}/bidon.o $(MAKES)
 	rm -f ${OBJDIR}/${PROG} 2> /dev/null; \
-	rm -f ${OBJDIR}/.x 2> /dev/null; \
+	rm -f ${OBJDIR}/.x ${OBJDIR}/.graphics_python 2> /dev/null; \
 	${FC} $(FFLAGS) ${FFLAGSEXTRA} -o ${OBJDIR}/${PROG} ${OBJDIR}/carre.o ${OBJDIR}/libcarre.a ${OBJDIR}/bidon.o ${LDLIBS} $(LDFLAGS) $(LDEXTRA) ${USOLLIBS}
 	touch ${OBJDIR}/.nox
 endif
@@ -480,6 +517,20 @@ ${OBJDIR}/b2mod_b2cmfs.${MOD}: ${B2SRC}/modules/b2mod_b2cmfs.F
 	@rm -f ${OBJDIR}/b2mod_b2cmfs.${MOD}
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_b2cmfs.o ${OBJDIR}/b2mod_b2cmfs.f
 
+${OBJDIR}/b2mod_b2plot_help.${MOD}: ${B2SRC}/modules/b2mod_b2plot_help.F ${OBJDIR}/b2mod_types.${MOD} ${OBJDIR}/b2mod_constants.${MOD}
+	@mkdir -p ${SRCDIR}/b25_links/
+	ln -sf ${B2SRC}/modules/b2mod_b2plot_help.F ${SRCDIR}/b25_links/
+	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_b2plot_help.F ${OBJDIR}/b2mod_b2plot_help.f
+	@rm -f ${OBJDIR}/b2mod_b2plot_help.${MOD}
+	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_b2plot_help.o ${OBJDIR}/b2mod_b2plot_help.f
+
+${OBJDIR}/b2mod_b2plot_py.${MOD}: ${B2SRC}/modules/b2mod_b2plot_py.F ${OBJDIR}/b2mod_types.${MOD} ${OBJDIR}/b2mod_graphics.${MOD} ${OBJDIR}/b2mod_b2plot_help.${MOD}
+	@mkdir -p ${SRCDIR}/b25_links/
+	ln -sf ${B2SRC}/modules/b2mod_b2plot_py.F ${SRCDIR}/b25_links/
+	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_b2plot_py.F ${OBJDIR}/b2mod_b2plot_py.f
+	@rm -f ${OBJDIR}/b2mod_b2plot_py.${MOD}
+	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_b2plot_py.o ${OBJDIR}/b2mod_b2plot_py.f
+
 ${OBJDIR}/b2mod_cellhelper.${MOD}: ${B2SRC}/ids/b2mod_cellhelper.F90 ${OBJDIR}/b2mod_types.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
 	ln -sf ${B2SRC}/ids/b2mod_cellhelper.F90 ${SRCDIR}/b25_links/
@@ -536,6 +587,13 @@ ${OBJDIR}/b2mod_geometry.${MOD}: ${B2SRC}/ids/b2mod_geometry.F90 ${OBJDIR}/b2mod
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_geometry.F90 ${OBJDIR}/b2mod_geometry.f90
 	@rm -f ${OBJDIR}/b2mod_geometry.${MOD}
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_geometry.o ${OBJDIR}/b2mod_geometry.f90
+
+${OBJDIR}/b2mod_graphics.${MOD}: ${B2SRC}/modules/b2mod_graphics.F ${OBJDIR}/b2mod_types.${MOD}
+	@mkdir -p ${SRCDIR}/b25_links/
+	ln -sf ${B2SRC}/modules/b2mod_graphics.F ${SRCDIR}/b25_links/
+	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_graphics.F ${OBJDIR}/b2mod_graphics.f
+	@rm -f ${OBJDIR}/b2mod_graphics.${MOD}
+	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_graphics.o ${OBJDIR}/b2mod_graphics.f
 
 ${OBJDIR}/b2mod_grid_mapping.${MOD}: ${B2SRC}/ids/b2mod_grid_mapping.F90 ${OBJDIR}/b2mod_connectivity.${MOD} ${OBJDIR}/b2mod_types.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
@@ -662,7 +720,8 @@ B2MODS_DUAL = b2mod_ad b2mod_b2cmfs b2mod_cellhelper b2mod_connectivity \
 	b2mod_constants b2mod_geo b2mod_geo2 b2mod_geo_corner b2mod_geometry \
 	b2mod_grid_mapping b2mod_indirect b2mod_ipmain b2mod_lwimai b2mod_lwmain \
 	b2mod_math b2mod_openmp b2mod_stack b2mod_switches b2mod_subsys \
-	b2mod_types b2mod_version b2mod_xerset b2us_debug b2us_geo b2us_map
+	b2mod_types b2mod_version b2mod_xerset b2us_debug b2us_geo b2us_map \
+	b2mod_b2plot_help b2mod_b2plot_py b2mod_graphics
 $(B2MODS_DUAL:%=${OBJDIR}/%.o): ${OBJDIR}/%.o: ${OBJDIR}/%.${MOD} ;
 else
 
@@ -679,6 +738,18 @@ ${OBJDIR}/b2mod_b2cmfs.o: ${B2SRC}/modules/b2mod_b2cmfs.F
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_b2cmfs.F ${OBJDIR}/b2mod_b2cmfs.f
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_b2cmfs.o ${OBJDIR}/b2mod_b2cmfs.f
 	@touch ${OBJDIR}/b2mod_b2cmfs.${MOD}
+
+${OBJDIR}/b2mod_b2plot_help.o: ${B2SRC}/modules/b2mod_b2plot_help.F ${OBJDIR}/b2mod_types.${MOD} ${OBJDIR}/b2mod_constants.${MOD}
+	@mkdir -p ${SRCDIR}/b25_links/
+	ln -sf ${B2SRC}/modules/b2mod_b2plot_help.F ${SRCDIR}/b25_links/
+	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_b2plot_help.F ${OBJDIR}/b2mod_b2plot_help.f
+	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_b2plot_help.o ${OBJDIR}/b2mod_b2plot_help.f
+
+${OBJDIR}/b2mod_b2plot_py.o: ${B2SRC}/modules/b2mod_b2plot_py.F ${OBJDIR}/b2mod_types.${MOD} ${OBJDIR}/b2mod_graphics.${MOD} ${OBJDIR}/b2mod_b2plot_help.${MOD}
+	@mkdir -p ${SRCDIR}/b25_links/
+	ln -sf ${B2SRC}/modules/b2mod_b2plot_py.F ${SRCDIR}/b25_links/
+	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_b2plot_py.F ${OBJDIR}/b2mod_b2plot_py.f
+	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_b2plot_py.o ${OBJDIR}/b2mod_b2plot_py.f
 
 ${OBJDIR}/b2mod_cellhelper.o: ${B2SRC}/ids/b2mod_cellhelper.F90 ${OBJDIR}/b2mod_types.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
@@ -728,6 +799,12 @@ ${OBJDIR}/b2mod_geometry.o: ${B2SRC}/ids/b2mod_geometry.F90 ${OBJDIR}/b2mod_ad.$
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_geometry.F90 ${OBJDIR}/b2mod_geometry.f90
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_geometry.o ${OBJDIR}/b2mod_geometry.f90
 	@touch ${OBJDIR}/b2mod_geometry.${MOD}
+
+${OBJDIR}/b2mod_graphics.o: ${B2SRC}/modules/b2mod_graphics.F ${OBJDIR}/b2mod_types.${MOD}
+	@mkdir -p ${SRCDIR}/b25_links/
+	ln -sf ${B2SRC}/modules/b2mod_graphics.F ${SRCDIR}/b25_links/
+	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/b2mod_graphics.F ${OBJDIR}/b2mod_graphics.f
+	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/b2mod_graphics.o ${OBJDIR}/b2mod_graphics.f
 
 ${OBJDIR}/b2mod_grid_mapping.o: ${B2SRC}/ids/b2mod_grid_mapping.F90 ${OBJDIR}/b2mod_connectivity.${MOD} ${OBJDIR}/b2mod_types.${MOD}
 	@mkdir -p ${SRCDIR}/b25_links/
@@ -931,6 +1008,12 @@ ${OBJDIR}/nagsubst.o: ${B2SRC}/utility/nagsubst.F ${OBJDIR}/b2mod_subsys.${MOD}
 	ln -sf ${B2SRC}/utility/nagsubst.F ${SRCDIR}/b25_links/
 	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/nagsubst.F ${OBJDIR}/nagsubst.f
 	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/nagsubst.o ${OBJDIR}/nagsubst.f
+
+${OBJDIR}/ncar_py.o: ${B2SRC}/b2plot/py/ncar_py.F ${OBJDIR}/b2mod_b2plot_py.${MOD} ${OBJDIR}/b2mod_subsys.${MOD} ${OBJDIR}/b2mod_types.${MOD}
+	@mkdir -p ${SRCDIR}/b25_links/
+	ln -sf ${B2SRC}/b2plot/py/ncar_py.F ${SRCDIR}/b25_links/
+	${CPP} ${DEFINES} -P -C ${INCLUDE} ${B2INCLUDE} ${SRCDIR}/b25_links/ncar_py.F ${OBJDIR}/ncar_py.f
+	$(COMPILE) $(INCLUDE) $(B2INCLUDE) -o ${OBJDIR}/ncar_py.o ${OBJDIR}/ncar_py.f
 
 ${OBJDIR}/open_file.o: ${B2SRC}/utility/open_file.F
 	@mkdir -p ${SRCDIR}/b25_links/

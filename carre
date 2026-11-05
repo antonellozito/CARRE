@@ -51,6 +51,14 @@ grid_stem=$class.carre
 
 [ -n "$SOLPS_DEBUG" ] && EXT_DEBUG=".debug"
 OBJDIR=builds/${HOST_NAME}.${COMPILER}${EXT_DEBUG}
+# Carre2 built with the Python graphics: carre.exe runs through them and
+# its pictures go to carre.pdf
+CARRE2_PY=
+[ -e ${OBJDIR}/.graphics_python ] && {
+  py=`command -v ${PYTHON:-python3}`
+  [ -n "$py" ] && CARRE2_PY="$py $SOLPSTOP/lib/python --exec" || \
+    /bin/echo -e "Warning: no Python found, Carre2 runs without pictures. install_python installs the SOLPS-ITER Python for them."
+}
 
 [ "$1" = '-' ] && {
     /bin/echo -e "No linking - the input files are assumed to exist in \"$indir\""
@@ -119,7 +127,7 @@ do {
             ${OBJDIR}/fcrr.exe; q=g; break;;
     ( g|G )                                               # create the grid:
 #            ${OBJDIR}/carre.exe; q=s; break;;
-            ${OBJDIR}/carre.exe 2>carre.log; q=$qqs; break;;
+            $CARRE2_PY ${OBJDIR}/carre.exe 2>carre.log; q=$qqs; break;;
     ( s|S )                                               # save the control data:
             cp carre.out carre.dat; q=c; break;;
     ( c|C )                                               # convert:
@@ -157,6 +165,8 @@ do {
                   /bin/echo -e "The grid in B2.5 format is stored as $griddir/$grid_stem.v$n.geo"
                 ictrans -e 'spooler postfilea4' -e '3Print' gmeta && ( mv ictrans.tmp.ps $griddir/$grid_stem.v$n.ps ; \
                   /bin/echo -e "You can view the grid in PostScript format as $griddir/$grid_stem.v$n.ps" )
+                [ -n "$CARRE2_PY" ] && [ -s carre.pdf ] && cp carre.pdf $griddir/$grid_stem.v$n.pdf && \
+                  /bin/echo -e "You can view the grid in PDF format as $griddir/$grid_stem.v$n.pdf"
                 touch CARRE.HISTORY
 		echo $user `date +%Y-%m-%d_%H:%M:%S` >> CARRE.HISTORY
 		ls -ls dg.??? | cut -d ' ' -f 9- >> CARRE.HISTORY
