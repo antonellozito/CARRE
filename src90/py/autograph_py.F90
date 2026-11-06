@@ -14,7 +14,7 @@
       integer, save :: numtyp(2) = 1
       real, save :: numwid(2) = 0.015, majcnt(2) = 6.
 ! Plotchar size of the Python graphics for a GKS character height, as
-! GKS text in lib/python/scene.py: Autograph writes through PWRIT
+! GKS text in lib/python/b2plot/scene.py: Autograph writes through PWRIT
       real, parameter :: gkssiz = 1./(0.7*1.83)
 ! Informational labels T (top), B (bottom), L (left)
       character*1, save :: lbname = ' '
